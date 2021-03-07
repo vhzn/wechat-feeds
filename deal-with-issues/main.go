@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const (
@@ -30,11 +31,15 @@ func main() {
 
 	issueBody := event.GetIssue().GetBody()
 
+	fmt.Println("body", issueBody)
+
 	if strings.HasPrefix(issueBody, "#skip") {
 		os.Exit(0)
 	}
 
 	us := regexp.MustCompile(`(?m)^https?://mp\.weixin\.qq\.com/s[^\s\r\n]+$`).FindAllString(event.GetIssue().GetTitle()+"\n"+issueBody, -1)
+
+	fmt.Println(strings.Join(us, "\n"))
 
 	if len(us) == 0 {
 		if issueBody == "" { // 有些看文档不仔细，标题里有链接，处理一下吧
@@ -50,9 +55,15 @@ func main() {
 	fail := map[string]error{}
 
 	for i := range us {
+		fmt.Println(us[i])
 		_, ok := done[us[i]]
 		if ok {
 			continue
+		}
+		done[us[i]] = 0
+
+		if i != 0 {
+			time.Sleep(time.Second * 5)
 		}
 
 		article, err := fetchWX(us[i])
@@ -182,7 +193,7 @@ func closeIssue(ctx context.Context, clientWithToken *github.Client, issue *gith
 		})
 	_, _, _ = clientWithToken.Issues.AddLabelsToIssue(ctx, Owner, Repo,
 		issue.GetNumber(),
-		[]string{string(common.LabelInvalid)})
+		[]string{string(label)})
 	_, _, _ = clientWithToken.Issues.CreateComment(ctx, Owner, Repo,
 		issue.GetNumber(),
 		&github.IssueComment{
